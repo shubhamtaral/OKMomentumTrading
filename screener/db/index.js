@@ -1,18 +1,23 @@
-'use strict';
-
-/**
- * db/index.js
- * Database connection pool for PostgreSQL.
- * Supports managed databases like Supabase, Neon, or RDS.
- */
-
 const { Pool } = require('pg');
+const dns = require('dns');
 
-const connectionString = process.env.DATABASE_URL;
+// Force Node.js to prefer IPv4 over IPv6. 
+// This fixes "ENETUNREACH" errors on some hosting providers (like Render or Vercel)
+// when connecting to Supabase/PostgreSQL.
+dns.setDefaultResultOrder('ipv4first');
+
+let connectionString = (process.env.DATABASE_URL || '').trim();
 
 if (!connectionString) {
   console.error('[DB] FATAL: DATABASE_URL environment variable is missing.');
   console.error('[DB] Please provide a valid PostgreSQL connection string.');
+  process.exit(1);
+}
+
+// Basic format check
+if (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://')) {
+  console.error('[DB] FATAL: Invalid DATABASE_URL format.');
+  console.error('[DB] It must start with "postgres://" or "postgresql://".');
   process.exit(1);
 }
 
