@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown';
+
 /**
  * ResultCard
  * ----------
@@ -36,15 +38,42 @@ const QUALITY_CONFIG = {
 
 export default function ResultCard({ signal, symbol, error, loading, isAIActive, onOpenAIConfig, onRetry }) {
   
-  // 1. Loading State
+  // 1. Loading State (Institutional Analyst Style)
   if (loading) {
     return (
-      <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-8 flex items-center justify-center gap-3 text-gray-500">
-        <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" opacity="0.3" />
-          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-        </svg>
-        <span className="text-sm">Scanning {symbol || '…'}</span>
+      <div className="rounded-3xl border border-brand/20 bg-gray-950/80 p-12 flex flex-col items-center justify-center gap-6 shadow-2xl relative overflow-hidden group">
+        {/* Animated Background Pulse */}
+        <div className="absolute inset-0 bg-brand/5 animate-pulse" />
+        
+        <div className="relative z-10 flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-brand/10 border border-brand/30 flex items-center justify-center text-3xl shadow-lg shadow-brand/20">
+              💡
+            </div>
+            {/* Pulsing ring around icon */}
+            <div className="absolute -inset-2 rounded-2xl border border-brand/40 animate-ping opacity-20" />
+          </div>
+
+          <div className="text-center space-y-3">
+            <h4 className="text-xs font-black text-brand uppercase tracking-[0.4em] animate-pulse">
+              AI Analyst Study in Progress
+            </h4>
+            <div className="flex flex-col items-center gap-2">
+               <p className="text-sm text-gray-300 font-mono font-medium">
+                 Generating AI advice for detected signal on <span className="text-white font-black">{symbol}</span>
+               </p>
+               <div className="flex gap-1.5 mt-2">
+                 <span className="w-1.5 h-1.5 rounded-full bg-brand animate-[bounce_1s_infinite_100ms]" />
+                 <span className="w-1.5 h-1.5 rounded-full bg-brand animate-[bounce_1s_infinite_200ms]" />
+                 <span className="w-1.5 h-1.5 rounded-full bg-brand animate-[bounce_1s_infinite_300ms]" />
+               </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 px-4 py-1.5 rounded-full bg-gray-900/50 border border-gray-800 text-[10px] text-gray-500 font-black uppercase tracking-widest">
+            Cross-referencing Oliver Kell Framework
+          </div>
+        </div>
       </div>
     );
   }
@@ -185,21 +214,50 @@ export default function ResultCard({ signal, symbol, error, loading, isAIActive,
             <span className="text-6-xl font-black italic">KELL</span>
           </div>
           <div className="relative">
-            <div className="flex items-center gap-3 mb-6">
-              <span className="w-10 h-10 rounded-xl bg-brand/20 flex items-center justify-center text-xl shadow-lg shadow-brand/20">💡</span>
+            <div className="flex items-center gap-3 mb-8">
+              <span className="w-12 h-12 rounded-2xl bg-brand/10 border border-brand/30 flex items-center justify-center text-xl shadow-lg shadow-brand/20">💡</span>
               <div>
-                <h4 className="text-xs font-black text-brand uppercase tracking-[0.3em]">Institutional Narrative</h4>
-                <p className="text-[10px] text-gray-500 font-bold uppercase">Kell Power Play Framework</p>
+                <h4 className="text-xs font-black text-brand uppercase tracking-[0.4em]">Institutional Study</h4>
+                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Oliver Kell Power Play Framework</p>
               </div>
             </div>
             
-            <div className="text-sm text-gray-300 leading-relaxed font-medium whitespace-pre-wrap font-mono prose prose-invert max-w-none">
-              {activeSignal.advice}
-            </div>
+            <article className="text-gray-300 leading-relaxed font-medium">
+              <ReactMarkdown
+                components={{
+                  h3: ({node, ...props}) => (
+                    <h3 className="text-brand text-xs font-black uppercase tracking-[0.2em] mt-10 mb-4 pb-2 border-b border-gray-900 flex items-center gap-2" {...props}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand" /> {props.children}
+                    </h3>
+                  ),
+                  strong: ({node, ...props}) => (
+                    <strong className="text-white font-black" {...props} />
+                  ),
+                  ul: ({node, ...props}) => (
+                    <ul className="space-y-3 my-6 list-none" {...props} />
+                  ),
+                  li: ({node, ...props}) => (
+                    <li className="text-xs flex items-start gap-3 text-gray-400" {...props}>
+                      <span className="text-brand/60 mt-1">•</span>
+                      <span>{props.children}</span>
+                    </li>
+                  ),
+                  p: ({node, ...props}) => (
+                    <p className="text-sm my-4 text-gray-300 font-mono leading-relaxed" {...props} />
+                  ),
+                }}
+              >
+                {activeSignal.advice}
+              </ReactMarkdown>
+            </article>
             
-            <div className="mt-8 pt-6 border-t border-gray-800/50 flex items-center justify-between text-[10px] text-gray-600 uppercase font-black">
-              <span>Risk Management: Enforced 8% Stop</span>
-              <span className="text-brand">Strategy: Kell-Trend Alignment</span>
+            <div className="mt-12 pt-8 border-t border-gray-900 flex items-center justify-between text-[10px] text-gray-600 uppercase font-black tracking-widest">
+              <div className="flex items-center gap-4">
+                 <span>Risk: Per Section 7</span>
+                 <span className="w-1 h-1 rounded-full bg-gray-800" />
+                 <span>Strategy: Momentum Alignment</span>
+              </div>
+              <span className="text-brand/40 italic">Confidential Research</span>
             </div>
           </div>
         </div>

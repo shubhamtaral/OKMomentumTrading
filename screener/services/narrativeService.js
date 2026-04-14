@@ -73,7 +73,19 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
 
   const prompt = `
     Analyze ${symbol} using Oliver Kell's "Power Play" strategy framework. 
-    
+
+    INTERNAL LOGIC CONTEXT:
+    This stock was selected because it passed our "Kell Universe" filters:
+    - Universe: Price > ₹100, 20d Avg Vol > 500k, RSI > 50, and trending above its EMA20.
+    - Software Detection Reasons: ${signal && signal.reasons ? signal.reasons.join(', ') : 'Consolidation watch'}
+    - Current Suggestion: ${signal ? signal.action : 'WAIT'} (Pattern: ${signal ? signal.signal_type : 'N/A'})
+    - Our technical rank: Grade ${signal ? signal.quality : 'N/A'} (Score: ${signal ? signal.score : 0}/9).
+
+    KELL PROTOCOL REFERENCE:
+    - BUY: Base breakout (<5% range for 15d) OR Wedge Pop with 1.5x+ Volume.
+    - SELL: Exhaustion (RSI > 75 AND extended 8%+ above EMA10).
+    - EXIT: Trend violation (Close below BOTH EMA10 and EMA20).
+
     DATA SNAPSHOT:
     - Current Price: ₹${snapshot.price}
     - 52-Week High/Low: ₹${snapshot.high_52w} / ₹${snapshot.low_52w}
@@ -83,7 +95,7 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
     - MA Stack: EMA10=₹${snapshot.ema.ema10}, EMA20=₹${snapshot.ema.ema20}, EMA50=₹${snapshot.ema.ema50}, EMA200=₹${snapshot.ema.ema200}
     - Detected Pattern: ${signal ? signal.signal_type : 'Consolidating / Neutral'}
 
-    PLEASE PROVIDE THE ANALYSIS IN THE FOLLOWING FORMAT:
+    PLEASE PROVIDE THE ANALYSIS IN THE FOLLOWING STRUCTURE:
 
     ### 1. THE SETUP (The "Box")
     (Analyze price history and consolidation range)
@@ -98,10 +110,11 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
     (Analyze distance from 52-week high and trend strength)
 
     ### 5. KELL SCORECARD
-    [ ] Base Quality: ___
-    [ ] Volume Confirmation: ___
-    [ ] MA Alignment: ___
-    [ ] Relative Strength: ___
+    **IMPORTANT: Use a markdown list (e.g., - [ ]) so each item is on its own line:**
+    - [ ] **Base Quality**: ___
+    - [ ] **Volume Confirmation**: ___
+    - [ ] **MA Alignment**: ___
+    - [ ] **Relative Strength**: ___
 
     ### 6. FINAL VERDICT
     **Power Play?** YES / NO / WATCHLIST
@@ -110,8 +123,8 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
     ### 7. POSITION SIZING & RISK
     (Provide specific sizing %, hard stop levels, and risk/reward ratio analysis)
 
-    ### 8. ACTION PLAN
-    (Immediate action and decision tree advice)
+    ### 8. BULL CASE & BEAR CASE
+    (Provide one concise bullet for each)
 
     Tone: Quant-grade, decisive, professional trader style. 
     Constraint: Keep it concise but information-dense.
@@ -130,7 +143,7 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
         model: model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_tokens: 800
+        max_tokens: 2000
       })
     });
 

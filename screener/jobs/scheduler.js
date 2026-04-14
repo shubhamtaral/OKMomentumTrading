@@ -103,11 +103,11 @@ async function runPipeline() {
  * the server's local timezone.
  */
 function startScheduler() {
-  // '30 14 * * *' = 14:30 UTC = 20:00 IST
-  const expression = process.env.CRON_EXPRESSION || '30 14 * * *';
+  // '30 14 * * 1-5' = 14:30 UTC (20:00 IST) Monday to Friday
+  const expression = process.env.CRON_EXPRESSION || '30 14 * * 1-5';
 
-  console.log('[Scheduler] Registering daily pipeline at: ' + expression + ' UTC');
-  console.log('[Scheduler] Equivalent IST: 20:00 (8:00 PM)');
+  console.log('[Scheduler] Registering weekday pipeline at: ' + expression + ' UTC');
+  console.log('[Scheduler] IST Schedule: Monday-Friday @ 20:00 (8:00 PM)');
 
   const task = cron.schedule(expression, () => {
     console.log('[Scheduler] Cron triggered at', new Date().toISOString());

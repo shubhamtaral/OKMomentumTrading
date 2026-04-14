@@ -98,9 +98,12 @@ router.post('/single', async (req, res) => {
     let snapshot = null;
     let advice   = null;
 
-    // 2. If no signal OR signal lacks "reasons", try On-Demand Scan
-    if (!signal || !signal.reasons || signal.reasons.length === 0) {
-      console.log('[POST /scan/single] No signal or missing metadata for ' + normalized + '. Triggering fresh scan...');
+    const hasDeepDiveAdvice = signal?.advice && signal.advice.includes('###');
+    const shouldForceScan    = userApiKey && !hasDeepDiveAdvice;
+
+    // 2. If no signal OR missing metadata OR need to upgrade to AI narrative
+    if (!signal || !signal.reasons || signal.reasons.length === 0 || shouldForceScan) {
+      console.log(`[POST /scan/single] ${shouldForceScan ? 'Upgrading to AI Deep Dive' : 'No signal found'} for ${normalized}. Triggering fresh scan...`);
       const result = await scanSingleSymbol(normalized, userApiKey);
       
       if (result.success) {

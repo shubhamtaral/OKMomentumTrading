@@ -3,15 +3,17 @@ import { useState, useMemo } from 'react';
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
 const ACTION_STYLES = {
-  BUY:  'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
-  SELL: 'bg-amber-500/15  text-amber-400  border border-amber-500/30',
-  EXIT: 'bg-red-500/15    text-red-400    border border-red-500/30',
+  BUY:   'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  SELL:  'bg-amber-500/15  text-amber-400  border border-amber-500/30',
+  EXIT:  'bg-red-500/15    text-red-400    border border-red-500/30',
+  WATCH: 'bg-gray-500/15   text-gray-400   border border-gray-500/30',
 };
 
 const QUALITY_STYLES = {
   'A+': 'bg-violet-500/20 text-violet-300 border border-violet-500/30',
   'A':  'bg-sky-500/20    text-sky-300    border border-sky-500/30',
   'B':  'bg-gray-700/50   text-gray-400   border border-gray-600',
+  'N/A': 'bg-gray-900/50   text-gray-600   font-normal',
 };
 
 const ROW_ACCENT = {
@@ -76,9 +78,13 @@ export default function Table({ signals = [], onSelect }) {
   const [sortKey, setSortKey]   = useState('score');
   const [sortDir, setSortDir]   = useState('desc');
 
+  const filtered = useMemo(() => {
+    return signals.filter(s => s.signal_type !== 'NEUTRAL');
+  }, [signals]);
+
   const sorted = useMemo(() => {
-    if (!sortKey) return signals;
-    return [...signals].sort((a, b) => {
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
       let av = a[sortKey], bv = b[sortKey];
       // Strings: lexicographic
       if (typeof av === 'string') av = av.toLowerCase();

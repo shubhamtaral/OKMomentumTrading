@@ -49,12 +49,22 @@ async function scanSingleSymbol(symbol, userApiKey = null) {
     // 5. Generate Intelligent Narrative
     const advice = await generateNarrative(symbol, snapshot, signal, userApiKey);
 
-    // 6. If signal found, save it (include the advice in the signal object)
-    if (signal) {
-      signal.advice = advice; // Store advice so it shows up in bulk results
-      await upsertSignal(signal);
-      console.log('[OnDemandScanner] Signal detected for:', symbol, signal.quality);
-    }
+    // 6. Persist results (Always save if we have advice)
+    const persistenceObject = signal || {
+      symbol,
+      price: snapshot.price,
+      rsi: snapshot.rsi,
+      volume_ratio: snapshot.volume_ratio,
+      signal_type: 'NEUTRAL',
+      action: 'WATCH',
+      score: 0,
+      quality: 'N/A',
+      reasons: ['No technical trigger detected'],
+      timestamp: new Date().toISOString()
+    };
+    
+    persistenceObject.advice = advice;
+    await upsertSignal(persistenceObject);
 
     return {
       success: true,

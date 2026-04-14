@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import SearchBox   from './components/SearchBox.jsx';
-import Table       from './components/Table.jsx';
-import ResultCard  from './components/ResultCard.jsx';
+import SearchBox from './components/SearchBox.jsx';
+import Table from './components/Table.jsx';
+import ResultCard from './components/ResultCard.jsx';
 import { fetchBulkSignals, fetchSingleSignal, fetchSymbols, triggerRunScan } from './services/api.js';
 
 const BULK_LIMIT = 50;
@@ -12,7 +12,7 @@ function Spinner({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="animate-spin" aria-hidden>
       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"
-              strokeDasharray="31.4" strokeDashoffset="10" opacity="0.3" />
+        strokeDasharray="31.4" strokeDashoffset="10" opacity="0.3" />
       <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
@@ -38,16 +38,17 @@ function StatusBar({ symbolsCount, lastUpdated }) {
 
 export default function App() {
   // Symbol list (fetched once on mount)
-  const [symbols,    setSymbols]    = useState([]);
-  const [symError,   setSymError]   = useState(null);
+  const [symbols, setSymbols] = useState([]);
+  const [symError, setSymError] = useState(null);
 
   // Bulk scan state
-  const [bulkSignals,  setBulkSignals]  = useState([]);
-  const [bulkLoading,  setBulkLoading]  = useState(false);
-  const [bulkError,    setBulkError]    = useState(null);
-  const [showAllSignals, setShowAllSignals] = useState(false);
-  const [lastUpdated,  setLastUpdated]  = useState(null);
-  const [logs,         setLogs]         = useState([]);
+  const [bulkSignals, setBulkSignals] = useState([]);
+  const [bulkLoading, setBulkLoading] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
+  const [bulkError, setBulkError] = useState(null);
+  const [showAllSignals, setShowAllSignals] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [logs, setLogs] = useState([]);
 
   const addLog = useCallback((msg, type = 'info') => {
     setLogs(prev => [{
@@ -64,12 +65,12 @@ export default function App() {
 
   // Single scan state
   const [singleSignal, setSingleSignal] = useState(null);
-  const [singleLoading,setSingleLoading]= useState(false);
-  const [singleError,  setSingleError]  = useState(null);
-  const [scannedSymbol,setScannedSymbol]= useState('');
+  const [singleLoading, setSingleLoading] = useState(false);
+  const [singleError, setSingleError] = useState(null);
+  const [scannedSymbol, setScannedSymbol] = useState('');
 
   // Active tab
-  const [activeTab, setActiveTab]       = useState('bulk');
+  const [activeTab, setActiveTab] = useState('bulk');
   // 'bulk' | 'single'
 
   const bulkRef = useRef(null);
@@ -83,42 +84,49 @@ export default function App() {
         setSymError('Could not load symbol list — autocomplete disabled.');
       });
   }, []);
-  // ── Bulk scan ────────────────────────────────────────────────────────────
-  const runBulkScan = useCallback(async () => {
+  // ── Bulk scan logic ────────────────────────────────────────────────────────
+  const refreshBulkData = useCallback(async () => {
     setBulkLoading(true);
-    setBulkError(null);
-    addLog('Requesting fresh market scan...', 'brand');
     try {
-      // 1. Trigger the actual scan on the server
+      const data = await fetchBulkSignals(BULK_LIMIT, showAllSignals);
+      setBulkSignals(data.signals || []);
+      setLastUpdated(new Date().toISOString());
+      setBulkLoading(false);
+    } catch (err) {
+      setBulkError(err.message || 'Failed to fetch signals.');
+      setBulkLoading(false);
+    }
+  }, [showAllSignals]);
+
+  const runBulkScan = useCallback(async () => {
+    setIsScanning(true);
+    setBulkError(null);
+    addLog('Requesting fresh market-wide scan...', 'brand');
+    try {
       const trigger = await triggerRunScan(aiKey);
-      
       addLog(trigger.message, 'info');
 
-      // 2. Poll Or Wait - For now we just wait 8 seconds and then fetch current status
+      // Refresh UI data immediately to show current DB state (unblocked)
+      await refreshBulkData();
+
+      // After 8s (approx job completion), refresh again for fresh signals
       setTimeout(async () => {
-        const data = await fetchBulkSignals(BULK_LIMIT, showAllSignals);
-        setBulkSignals(data.signals || []);
-        setLastUpdated(new Date().toISOString());
-        addLog(`Market snapshot updated. Found ${data.signals?.length || 0} setups.`, 'success');
-        setBulkLoading(false);
+        await refreshBulkData();
+        addLog('Market snapshot refreshed from fresh scan.', 'success');
+        setIsScanning(false);
       }, 8000);
 
     } catch (err) {
       setBulkError(err.message || 'Bulk scan trigger failed.');
       addLog('Bulk scan failed: ' + err.message, 'error');
-      setBulkLoading(false);
+      setIsScanning(false);
     }
-  }, [showAllSignals, aiKey, addLog]);
+  }, [aiKey, addLog, refreshBulkData]);
 
-  // Refresh bulk scan when showAllSignals changes
+  // Initial load and filter changes
   useEffect(() => {
-    runBulkScan();
-  }, [showAllSignals]);
-
-  // Initial load
-  useEffect(() => {
-    // runBulkScan is already called by the above useEffect 
-  }, []);
+    refreshBulkData();
+  }, [showAllSignals, refreshBulkData]);
 
   // ── Single Scan Handler ──────────────────────────────────────────
   const handleSymbolSearch = useCallback(async (symbol) => {
@@ -157,7 +165,7 @@ export default function App() {
   // ── Tabs ─────────────────────────────────────────────────────────────────
   const TAB_BASE = 'px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-150 focus:outline-none';
   const TAB_ACTIVE = 'bg-gray-800 text-gray-100';
-  const TAB_IDLE   = 'text-gray-500 hover:text-gray-300 hover:bg-gray-900';
+  const TAB_IDLE = 'text-gray-500 hover:text-gray-300 hover:bg-gray-900';
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-sans">
@@ -177,7 +185,7 @@ export default function App() {
         {/* Intelligence Config Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 border-t border-gray-800/40">
           <div className="py-2">
-            <button 
+            <button
               onClick={() => setShowAiConfig(!showAiConfig)}
               className="flex items-center gap-2 group"
             >
@@ -187,13 +195,13 @@ export default function App() {
               </span>
               <span className={`text-[10px] transition-transform duration-200 ${showAiConfig ? 'rotate-180' : ''}`}>▼</span>
             </button>
-            
+
             {showAiConfig && (
               <div className="mt-3 p-4 rounded-xl bg-gray-900/40 border border-gray-800 space-y-4 animate-in slide-in-from-top-2 duration-200 mb-4">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1">
                     <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">AI API KEY (OPENAI / OPENROUTER)</label>
-                    <input 
+                    <input
                       type="password"
                       placeholder="sk-... or sk-or-..."
                       value={aiKey}
@@ -249,12 +257,14 @@ export default function App() {
               <div>
                 <h2 className="font-semibold text-gray-200">Current Market Setups</h2>
                 <div className="flex items-center gap-4 mt-1">
-                  <p className="text-xs text-gray-500">
-                    {bulkSignals.length} opportunities detected
+                  <p className="text-xs text-gray-500 flex items-center gap-2">
+                    <span>{bulkSignals.length} opportunities detected</span>
+                    <span className="w-1 h-1 rounded-full bg-gray-800" />
+                    <span className="text-[10px] text-gray-600 font-bold uppercase tracking-tighter italic">Mon-Fri @ 8 PM</span>
                   </p>
                   <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="w-3.5 h-3.5 rounded border-gray-700 bg-gray-900 text-brand focus:ring-brand focus:ring-offset-0"
                       checked={showAllSignals}
                       onChange={(e) => setShowAllSignals(e.target.checked)}
@@ -265,7 +275,7 @@ export default function App() {
               </div>
               <button
                 onClick={runBulkScan}
-                disabled={bulkLoading}
+                disabled={isScanning}
                 className={[
                   'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold',
                   'bg-brand hover:bg-brand-dark text-white',
@@ -274,11 +284,11 @@ export default function App() {
                   'shadow-lg shadow-brand/20',
                 ].join(' ')}
               >
-                {bulkLoading ? <><Spinner size={15} /> Processing…</> : (
+                {isScanning ? <><Spinner size={15} /> Syncing…</> : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     rerun scan
                   </>
@@ -308,10 +318,10 @@ export default function App() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-               <span className="text-[10px] uppercase font-bold text-gray-600">Context:</span>
-               <span className="text-[10px] font-black text-brand uppercase bg-brand/10 border border-brand/20 px-2 py-0.5 rounded">
+              <span className="text-[10px] uppercase font-bold text-gray-600">Context:</span>
+              <span className="text-[10px] font-black text-brand uppercase bg-brand/10 border border-brand/20 px-2 py-0.5 rounded">
                 Oliver Kell Setup
-               </span>
+              </span>
             </div>
           </div>
           <SearchBox
@@ -329,9 +339,13 @@ export default function App() {
           <section className="animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-200">
-                {scannedSymbol ? `Result for ${scannedSymbol}` : 'Single Stock Result'}
+                {scannedSymbol ? (
+                  <>Result for <span className="text-brand font-black">{scannedSymbol}</span></>
+                ) : (
+                  'Single Stock Result'
+                )}
               </h2>
-              <button 
+              <button
                 onClick={() => setSingleSignal(null)}
                 className="text-[10px] text-gray-500 hover:text-gray-300 uppercase font-bold"
               >
