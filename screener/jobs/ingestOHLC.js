@@ -26,30 +26,18 @@ const { getAllSymbols, insertOHLC } = require('../db/queries');
 // Config
 // ---------------------------------------------------------------------------
 
-const BATCH_SIZE        = parseInt(process.env.OHLC_BATCH_SIZE, 10) || 20;
-const BATCH_DELAY_MS    = parseInt(process.env.OHLC_BATCH_DELAY_MS, 10) || 1500;
+const BATCH_SIZE        = parseInt(process.env.OHLC_BATCH_SIZE, 10) || 35;
+const BATCH_DELAY_MS    = parseInt(process.env.OHLC_BATCH_DELAY_MS, 10) || 800;
 const CANDLES_TO_KEEP   = 350;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * sleep(ms)
- * Simple promise-based delay.
- */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * chunk(array, size)
- * Splits an array into sub-arrays of at most `size` elements.
- *
- * @param {Array} array
- * @param {number} size
- * @returns {Array<Array>}
- */
 function chunk(array, size) {
   const chunks = [];
   for (let i = 0; i < array.length; i += size) {
@@ -58,92 +46,60 @@ function chunk(array, size) {
   return chunks;
 }
 
-// ---------------------------------------------------------------------------
-// Batch processor
-// ---------------------------------------------------------------------------
-
 /**
  * processBatch(symbols)
  * ---------------------
- * Fetches OHLC data for every symbol in the batch concurrently, then
- * writes each result to the DB. Returns per-symbol outcomes.
- *
- * @param {Array<{symbol: string}>} symbols
- * @returns {Promise<Array<{symbol, status, candles}>>}
+ * Fetches OHLC data concurrently, then writes to the DB in parallel.
+ * Returns per-symbol outcomes.
  */
 async function processBatch(symbols) {
-  // Fire all fetches in parallel — allSettled so one failure does not abort the rest
-  const fetches = symbols.map(({ symbol }) =>
+  // 1. Fetch from Yahoo Finance in parallel
+  const fetchPromises = symbols.map(({ symbol }) =>
     fetchOHLCWithRetry(symbol).then((candles) => ({ symbol, candles }))
   );
 
-  const results = await Promise.allSettled(fetches);
-  const outcomes = [];
-
-  for (const result of results) {
-    if (result.status === 'rejected') {
-      // fetchOHLCWithRetry never rejects (returns null on failure), but guard anyway
-      console.error('[IngestOHLC] Unexpected rejection:', result.reason);
-      continue;
-    }
-
-    const { symbol, candles } = result.value;
-
+  const fetchResults = await Promise.all(fetchPromises);
+  
+  // 2. Write to DB in parallel
+  const dbPromises = fetchResults.map(async ({ symbol, candles }) => {
     if (!candles || candles.length === 0) {
-      outcomes.push({ symbol, status: 'skipped', candles: 0 });
-      continue;
+      return { symbol, status: 'skipped', candles: 0 };
     }
-
     try {
       const { inserted } = await insertOHLC(symbol, candles, CANDLES_TO_KEEP);
-      outcomes.push({ symbol, status: 'ok', candles: inserted });
+      return { symbol, status: 'ok', candles: inserted };
     } catch (dbErr) {
-      console.error('[IngestOHLC] DB write failed for ' + symbol + ':', dbErr.message);
-      outcomes.push({ symbol, status: 'db_error', candles: 0 });
+      console.error(`[IngestOHLC] DB write failed for ${symbol}:`, dbErr.message);
+      return { symbol, status: 'db_error', candles: 0 };
     }
-  }
+  });
 
-  return outcomes;
+  return await Promise.all(dbPromises);
 }
 
 // ---------------------------------------------------------------------------
 // Main job
 // ---------------------------------------------------------------------------
 
-/**
- * run()
- * -----
- * Processes the full symbol universe in batches. Returns a summary.
- * Never throws — all errors are caught and logged.
- *
- * @returns {Promise<{success: boolean, total: number, ok: number, skipped: number, errors: number}>}
- */
 async function run() {
   const startedAt = Date.now();
-  console.log('[IngestOHLC] Job started at', new Date().toISOString());
+  console.log('[IngestOHLC] Optimized job started at', new Date().toISOString());
 
   let counters = { ok: 0, skipped: 0, errors: 0 };
 
   try {
-    // 1. Load symbol universe from DB
     const allSymbols = await getAllSymbols();
-
     if (allSymbols.length === 0) {
-      console.warn('[IngestOHLC] No active symbols in DB. Run ingestSymbols first.');
+      console.warn('[IngestOHLC] No active symbols in DB.');
       return { success: true, total: 0, ok: 0, skipped: 0, errors: 0 };
     }
 
-    console.log('[IngestOHLC] Processing ' + allSymbols.length +
-                ' symbols in batches of ' + BATCH_SIZE + '...');
+    console.log(`[IngestOHLC] Parallel processing ${allSymbols.length} symbols (Batch: ${BATCH_SIZE}, Delay: ${BATCH_DELAY_MS}ms)`);
 
-    // 2. Split into batches
     const batches = chunk(allSymbols, BATCH_SIZE);
 
     for (let bi = 0; bi < batches.length; bi++) {
       const batch = batches[bi];
-      console.log('[IngestOHLC] Batch ' + (bi + 1) + '/' + batches.length +
-                  ' (' + batch.length + ' symbols)...');
-
       const outcomes = await processBatch(batch);
 
       for (const o of outcomes) {
@@ -152,17 +108,13 @@ async function run() {
         else                         counters.errors++;
       }
 
-      // Throttle: pause between batches (skip delay after last batch)
       if (bi < batches.length - 1) {
         await sleep(BATCH_DELAY_MS);
       }
     }
 
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-    console.log('[IngestOHLC] Done. ok=' + counters.ok +
-                ', skipped=' + counters.skipped +
-                ', errors=' + counters.errors +
-                ', elapsed=' + elapsed + 's');
+    console.log(`[IngestOHLC] Completed in ${elapsed}s. ok=${counters.ok}, skipped=${counters.skipped}, errors=${counters.errors}`);
 
     return {
       success: true,

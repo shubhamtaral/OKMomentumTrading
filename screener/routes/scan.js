@@ -143,26 +143,45 @@ router.post('/single', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /scan/run
+// ---------------------------------------------------------------------------
+
+/**
+ * Triggers a quick market-wide signal generation pass (Recalculates from current data).
+ */
+router.post('/run', async (req, res) => {
+  const userApiKey = req.headers['x-ai-key'];
+  const { run: runSignalsJob } = require('../jobs/generateSignals');
+
+  console.log('[POST /scan/run] Manual quick scan started...');
+  runSignalsJob(userApiKey)
+    .then(result => console.log('[POST /scan/run] Complete:', result))
+    .catch(err => console.error('[POST /scan/run] Failed:', err.message));
+
+  return res.json({
+    success: true,
+    message: 'Quick scan started. Refresh in 10-15 seconds.'
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /scan/full-sync
 // ---------------------------------------------------------------------------
 
 /**
  * Triggers the FULL ingestion pipeline (Symbols -> OHLC -> Signals).
- * Very intensive; used only for manual system resets.
  */
 router.post('/full-sync', async (req, res) => {
   const { runPipeline } = require('../jobs/scheduler');
-
   console.log('[POST /scan/full-sync] Manual FULL pipeline sync started...');
   
-  // Run it in the background
   runPipeline()
     .then(result => console.log('[POST /scan/full-sync] Full sync complete:', result))
     .catch(err => console.error('[POST /scan/full-sync] Full sync failed:', err.message));
 
   return res.json({
     success: true,
-    message: 'Full system sync started (Symbols + OHLC + Signals). This will take 2-5 minutes.'
+    message: 'Full system sync started. This will take 2-5 minutes.'
   });
 });
 

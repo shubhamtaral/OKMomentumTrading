@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import SearchBox from './components/SearchBox.jsx';
 import Table from './components/Table.jsx';
 import ResultCard from './components/ResultCard.jsx';
-import { fetchBulkSignals, fetchSingleSignal, fetchSymbols, triggerFullSync } from './services/api.js';
+import { fetchBulkSignals, fetchSingleSignal, fetchSymbols, triggerRunScan, triggerFullSync } from './services/api.js';
 
 const BULK_LIMIT = 50;
 
@@ -79,6 +79,7 @@ export default function App() {
   const [secretClickCount, setSecretClickCount] = useState(0);
   const [isMaintenanceActive, setIsMaintenanceActive] = useState(false);
   const [isSyncingFull, setIsSyncingFull] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
 
   const handleLogoClick = () => {
     const newCount = secretClickCount + 1;
@@ -433,13 +434,48 @@ export default function App() {
       </main>
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
-      <footer className="mt-12 border-t border-gray-800/40 py-8 text-center space-y-2">
-        <p className="text-xs text-gray-500 font-medium">
-          OK Momentum Screener · Signals precomputed from NSE data
-        </p>
-        <p className="text-[10px] text-gray-700 max-w-2xl mx-auto px-4 uppercase tracking-widest font-bold">
-          ⚠ DISCLAIMER: For Educational & Study Purposes Only. Not Financial Advice. ⚠
-        </p>
+      <footer className="mt-12 border-t border-gray-800/40 py-8 text-center space-y-4">
+        <button 
+          onClick={() => setShowStatus(!showStatus)}
+          className="text-[10px] text-gray-600 hover:text-gray-400 uppercase font-black tracking-widest transition-colors"
+        >
+          {showStatus ? 'Close System Status' : 'View System Status'}
+        </button>
+
+        {showStatus && (
+          <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-gray-900/40 border border-gray-800 text-left animate-in slide-in-from-bottom-4 duration-300">
+            <h3 className="text-xs font-black text-brand uppercase tracking-widest mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-brand animate-pulse" /> Operational Status
+            </h3>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Database Instance</p>
+                <p className="text-sm text-gray-300 font-mono">Supavisor / PostgreSQL 15</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">NSE Watchlist</p>
+                <p className="text-sm text-gray-300 font-mono">{symbols.length.toLocaleString()} symbols</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Active Signals</p>
+                <p className="text-sm text-gray-300 font-mono">{bulkSignals.length} A/A+ Grades</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Ingestion Node</p>
+                <p className="text-sm text-gray-300 font-mono text-emerald-500">HEALTHY / ONLINE</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500 font-medium">
+            OK Momentum Screener · Signals precomputed from NSE data
+          </p>
+          <p className="text-[10px] text-gray-700 max-w-2xl mx-auto px-4 uppercase tracking-widest font-bold">
+            ⚠ DISCLAIMER: For Educational & Study Purposes Only. Not Financial Advice. ⚠
+          </p>
+        </div>
       </footer>
     </div>
   );

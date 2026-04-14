@@ -308,6 +308,28 @@ export default function ResultCard({ signal, symbol, error, loading, isAIActive,
         </div>
       )}
 
+      {/* 📊 Fundamental Health (Premium Design) */}
+      {isAIActive && activeSignal.fundamentals && (
+        <div className="space-y-8 animate-in fade-in duration-700">
+          <div>
+            <SectionHeader title="Institutional Quick-Stats" icon="🏛️" />
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-4">
+              <FundamentalMetric icon="💎" label="M-Cap (Cr)" value={`₹${activeSignal.fundamentals.mcap_cr}`} />
+              <FundamentalMetric icon="📈" label="3y Price Δ" value={activeSignal.fundamentals.price_delta_3y} highlight={!activeSignal.fundamentals.price_delta_3y?.startsWith('-')} />
+              <FundamentalMetric icon="🤝" label="3y Promoter Δ" value={activeSignal.fundamentals.promoter_delta_3y} highlight={!activeSignal.fundamentals.promoter_delta_3y?.startsWith('-')} />
+              <FundamentalMetric icon="💰" label="Net Profit (Cr)" value={`₹${activeSignal.fundamentals.net_profit_cr}`} />
+              <FundamentalMetric icon="🚀" label="5y Profit Growth" value={activeSignal.fundamentals.profit_growth_5y} highlight={!activeSignal.fundamentals.profit_growth_5y?.startsWith('-')} />
+              <FundamentalMetric icon="🛒" label="5y Sales Growth" value={activeSignal.fundamentals.sales_growth_5y} highlight={!activeSignal.fundamentals.sales_growth_5y?.startsWith('-')} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ProsConsList title="STRENGTHS & PROS" items={activeSignal.fundamentals.pros} type="pros" />
+            <ProsConsList title="RISKS & CONCERNS" items={activeSignal.fundamentals.cons} type="cons" />
+          </div>
+        </div>
+      )}
+
       {/* Scorecard */}
       <section>
         <SectionHeader title="Scorecard" icon="📋" />
@@ -472,12 +494,39 @@ function MARow({ label, val, color }) {
   );
 }
 
-function MetricBox({ label, value, sub }) {
+function FundamentalMetric({ icon, label, value, highlight }) {
   return (
-    <div className="bg-gray-900/60 rounded-xl px-4 py-3 border border-gray-800">
-      <span className="text-[10px] text-gray-500 uppercase font-bold">{label}</span>
-      <div className="text-lg font-black text-gray-100">{value}</div>
-      {sub && <span className="text-[10px] text-brand/60">{sub}</span>}
+    <div className="group bg-gray-900/40 border border-gray-800/60 hover:border-brand/40 rounded-2xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-brand/5 shadow-inner">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm opacity-60 grayscale group-hover:grayscale-0 transition-all">{icon}</span>
+        <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest leading-none">{label}</span>
+      </div>
+      <div className={`text-sm md:text-base font-black ${highlight ? 'text-brand' : 'text-gray-100'} tracking-tight`}>
+        {value || '—'}
+      </div>
+    </div>
+  );
+}
+
+function ProsConsList({ title, items, type }) {
+  const isPros = type === 'pros';
+  const accentColor = isPros ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : 'text-rose-400 border-rose-500/20 bg-rose-500/5';
+  const bulletColor = isPros ? 'text-emerald-500' : 'text-rose-500';
+
+  return (
+    <div className={`p-6 rounded-3xl border ${accentColor} shadow-xl backdrop-blur-sm relative overflow-hidden group`}>
+       <div className="absolute top-0 left-0 w-1 h-full bg-current opacity-30" />
+       <h5 className="text-[10px] font-black uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+         {isPros ? '⚡' : '🛡️'} {title}
+       </h5>
+       <ul className="space-y-3">
+         {items?.map((it, i) => (
+           <li key={i} className="text-xs text-gray-400 leading-relaxed font-semibold flex items-start gap-3 group-hover:text-gray-200 transition-colors">
+             <span className={`${bulletColor} mt-1 text-base leading-none`}>•</span>
+             <span>{it}</span>
+           </li>
+         ))}
+       </ul>
     </div>
   );
 }

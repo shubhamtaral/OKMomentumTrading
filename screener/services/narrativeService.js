@@ -97,6 +97,9 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
 
     PLEASE PROVIDE THE ANALYSIS IN THE FOLLOWING STRUCTURE:
 
+    *** IMPORTANT: DO NOT include a fundamental table or Pros/Cons list in the text body below.
+    ONLY provide sections 1-7. The system will automatically render stats from your JSON block. ***
+
     ### 1. THE SETUP (The "Box")
     (Analyze price history and consolidation range)
 
@@ -110,7 +113,6 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
     (Analyze distance from 52-week high and trend strength)
 
     ### 5. KELL SCORECARD
-    **IMPORTANT: Use a markdown list (e.g., - [ ]) so each item is on its own line:**
     - [ ] **Base Quality**: ___
     - [ ] **Volume Confirmation**: ___
     - [ ] **MA Alignment**: ___
@@ -118,13 +120,23 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
 
     ### 6. FINAL VERDICT
     **Power Play?** YES / NO / WATCHLIST
-    - Entry: ₹___ | Stop: ₹___ | Target: ₹___ (T1/T2)
+    Entry: ₹___ | Stop: ₹___ | Target: ₹___
 
     ### 7. POSITION SIZING & RISK
-    (Provide specific sizing %, hard stop levels, and risk/reward ratio analysis)
+    (Specific sizing %, hard stop levels)
 
-    ### 8. BULL CASE & BEAR CASE
-    (Provide one concise bullet for each)
+    ---METRICS_START---
+    {
+      "mcap_cr": number,
+      "price_delta_3y": "X%",
+      "promoter_delta_3y": "X%",
+      "net_profit_cr": number,
+      "profit_growth_5y": "X%",
+      "sales_growth_5y": "X%",
+      "pros": ["bullet", "bullet"],
+      "cons": ["bullet", "bullet"]
+    }
+    ---METRICS_END---
 
     Tone: Quant-grade, decisive, professional trader style. 
     Constraint: Keep it concise but information-dense.
@@ -136,7 +148,7 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://ok-momentum-screener.local', // Optional for OpenRouter
+        'HTTP-Referer': 'https://ok-momentum-screener.local',
         'X-Title': 'OK Momentum Screener'
       },
       body: JSON.stringify({
@@ -152,14 +164,28 @@ async function getAINarrative(symbol, snapshot, signal, apiKey) {
     
     if (!content || content.length < 10) {
       console.warn('[NarrativeService] AI returned empty/invalid response. Falling back.');
-      return getRuleBasedAdvice(symbol, snapshot, signal);
+      return { advice: getRuleBasedAdvice(symbol, snapshot, signal), fundamentals: null };
     }
 
-    return content;
+    // Extract JSON metrics if present
+    const metricsMatch = content.match(/---METRICS_START---([\s\S]+?)---METRICS_END---/);
+    let fundamentals = null;
+    let advice = content;
+
+    if (metricsMatch) {
+      try {
+        fundamentals = JSON.parse(metricsMatch[1].trim());
+        // Clean the display text
+        advice = content.replace(/---METRICS_START---[\s\S]+?---METRICS_END---/, '').trim();
+      } catch (err) {
+        console.warn('[NarrativeService] Failed to parse metrics JSON:', err.message);
+      }
+    }
+
+    return { advice, fundamentals };
   } catch (err) {
     console.error('[NarrativeService] AI Request failed:', err.message);
-    // Fallback to rule-based engine on any error
-    return getRuleBasedAdvice(symbol, snapshot, signal);
+    return { advice: getRuleBasedAdvice(symbol, snapshot, signal), fundamentals: null };
   }
 }
 

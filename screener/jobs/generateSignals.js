@@ -69,10 +69,13 @@ async function processSymbol(symbol, niftyCandles, userApiKey = null) {
     try {
       const snapshot = createSnapshot(symbol, candles);
       console.log(`[GenerateSignals] Generating AI advice for detected signal on ${symbol}...`);
-      signal.advice = await generateNarrative(symbol, snapshot, signal, userApiKey);
+      const { advice, fundamentals } = await generateNarrative(symbol, snapshot, signal, userApiKey);
+      signal.advice = advice;
+      signal.fundamentals = fundamentals;
     } catch (aiErr) {
       console.warn(`[GenerateSignals] AI advice failed for ${symbol}:`, aiErr.message);
-      signal.advice = null; // Fallback handled by upsertSignal/DB
+      signal.advice = null;
+      signal.fundamentals = null;
     }
 
     await upsertSignal(signal);

@@ -45,6 +45,7 @@ const CREATE_SIGNALS = `
     quality      TEXT    NOT NULL,
     reasons      TEXT,
     advice       TEXT,
+    fundamentals JSONB,
     timestamp    TEXT    NOT NULL
   );
 `;
@@ -56,6 +57,17 @@ async function initSchema() {
     await query(CREATE_SYMBOLS);
     await query(CREATE_OHLC);
     await query(CREATE_SIGNALS);
+    
+    // Migration: Add fundamentals column to existing tables
+    await query(`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='signals' AND column_name='fundamentals') THEN
+          ALTER TABLE signals ADD COLUMN fundamentals JSONB;
+        END IF;
+      END $$;
+    `);
+
     await query('CREATE INDEX IF NOT EXISTS idx_ohlc_symbol_date ON ohlc_data (symbol, date DESC);');
     await query('CREATE INDEX IF NOT EXISTS idx_signals_symbol ON signals (symbol);');
     await query('CREATE INDEX IF NOT EXISTS idx_signals_quality_score ON signals (quality, score DESC);');

@@ -66,11 +66,32 @@ async function insertOHLC(symbol, candles, keepCount) {
   
   const { client, query, release } = await db.getClient();
   try {
+    const validCandles = candles.filter(c => c.date && c.close != null);
+    if (validCandles.length === 0) return { inserted: 0 };
+
     await query('BEGIN');
-    let n = 0;
-    const upsertSql = `
+    
+    // Build a bulk insert query
+    // SQL: INSERT INTO ohlc_data (...) VALUES ($1, $2, ...), ($8, $9, ...)
+    const values = [];
+    const placeholders = [];
+    
+    validCandles.forEach((c, i) => {
+      const idx = i * 7;
+      placeholders.push(`($${idx+1}, $${idx+2}, $${idx+3}, $${idx+4}, $${idx+5}, $${idx+6}, $${idx+7})`);
+      values.push(
+        symbol, c.date,
+        c.open   != null ? c.open   : 0,
+        c.high   != null ? c.high   : 0,
+        c.low    != null ? c.low    : 0,
+        c.close,
+        c.volume != null ? c.volume : 0
+      );
+    });
+
+    const bulkUpsertSql = `
       INSERT INTO ohlc_data (symbol, date, open, high, low, close, volume)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ${placeholders.join(', ')}
       ON CONFLICT(symbol, date) DO UPDATE SET
         open   = EXCLUDED.open,
         high   = EXCLUDED.high,
@@ -79,20 +100,9 @@ async function insertOHLC(symbol, candles, keepCount) {
         volume = EXCLUDED.volume
     `;
     
-    for (const c of candles) {
-      if (!c.date || c.close == null) continue;
-      await query(upsertSql, [
-        symbol, c.date,
-        c.open   != null ? c.open   : 0,
-        c.high   != null ? c.high   : 0,
-        c.low    != null ? c.low    : 0,
-        c.close,
-        c.volume != null ? c.volume : 0
-      ]);
-      n++;
-    }
+    await query(bulkUpsertSql, values);
     
-    // Prune old data (Postgres syntax for the subquery limit)
+    // Prune logic
     const pruneSql = `
       DELETE FROM ohlc_data
       WHERE symbol = $1
@@ -106,10 +116,10 @@ async function insertOHLC(symbol, candles, keepCount) {
     await query(pruneSql, [symbol, keep]);
     
     await query('COMMIT');
-    return { inserted: n };
+    return { inserted: validCandles.length };
   } catch (err) {
     await query('ROLLBACK');
-    console.error('[Queries] insertOHLC failed:', err.message);
+    console.error(`[Queries] insertOHLC failed for ${symbol}:`, err.message);
     throw err;
   } finally {
     release();
@@ -136,9 +146,9 @@ async function upsertSignal(signal) {
   
   const insertSql = `
     INSERT INTO signals
-      (symbol, price, rsi, volume_ratio, signal_type, action, score, quality, reasons, advice, timestamp)
+      (symbol, price, rsi, volume_ratio, signal_type, action, score, quality, reasons, advice, fundamentals, timestamp)
     VALUES
-      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
   `;
   
   const deleteSql = `
@@ -148,6 +158,9 @@ async function upsertSignal(signal) {
   `;
 
   const reasons = Array.isArray(signal.reasons) ? JSON.stringify(signal.reasons) : '[]';
+  const fundamentals = signal.fundamentals && typeof signal.fundamentals === 'object' 
+    ? JSON.stringify(signal.fundamentals) 
+    : null;
   
   await db.query(insertSql, [
     signal.symbol, signal.price, signal.rsi,
@@ -156,6 +169,7 @@ async function upsertSignal(signal) {
     signal.score != null ? signal.score : 0,
     signal.quality, reasons,
     signal.advice || null,
+    fundamentals,
     signal.timestamp || now
   ]);
   
@@ -168,6 +182,13 @@ function parseSignal(row) {
     row.reasons = JSON.parse(row.reasons || '[]');
   } catch (_) {
     row.reasons = [];
+  }
+  try {
+    if (row.fundamentals && typeof row.fundamentals === 'string') {
+      row.fundamentals = JSON.parse(row.fundamentals);
+    }
+  } catch (_) {
+    row.fundamentals = null;
   }
   return row;
 }

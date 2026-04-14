@@ -47,7 +47,7 @@ async function scanSingleSymbol(symbol, userApiKey = null) {
     const snapshot = createSnapshot(symbol, candles);
 
     // 5. Generate Intelligent Narrative
-    const advice = await generateNarrative(symbol, snapshot, signal, userApiKey);
+    const { advice, fundamentals } = await generateNarrative(symbol, snapshot, signal, userApiKey);
 
     // 6. Persist results (Always save if we have advice)
     const persistenceObject = signal || {
@@ -64,6 +64,7 @@ async function scanSingleSymbol(symbol, userApiKey = null) {
     };
     
     persistenceObject.advice = advice;
+    persistenceObject.fundamentals = fundamentals;
     await upsertSignal(persistenceObject);
 
     return {
@@ -71,6 +72,7 @@ async function scanSingleSymbol(symbol, userApiKey = null) {
       signal: signal || null,
       snapshot: snapshot,
       advice: advice,
+      fundamentals: fundamentals,
       symbol: symbol
     };
 

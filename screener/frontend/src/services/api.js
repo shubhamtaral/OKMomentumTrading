@@ -93,6 +93,18 @@ export async function fetchSymbols() {
 }
 
 /**
+ * triggerRunScan(aiKey)
+ * --------------------
+ * POST /scan/run
+ * Triggers a simple market-wide signal generation pass.
+ */
+export async function triggerRunScan(aiKey = null) {
+  const headers = {};
+  if (aiKey) headers['x-ai-key'] = aiKey;
+  return apiFetch('/scan/run', { method: 'POST', headers });
+}
+
+/**
  * triggerFullSync()
  * --------------------
  * POST /scan/full-sync
