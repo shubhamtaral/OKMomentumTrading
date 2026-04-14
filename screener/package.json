@@ -1,0 +1,29 @@
+{
+  "name": "ok-momentum-screener",
+  "version": "1.0.0",
+  "description": "Production-ready NSE stock screener - Oliver Kell momentum style",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "init-db": "node db/schema.js",
+    "ingest-symbols": "node jobs/ingestSymbols.js",
+    "ingest-ohlc": "node jobs/ingestOHLC.js",
+    "generate-signals": "node jobs/generateSignals.js",
+    "pipeline": "npm run init-db && npm run ingest-symbols && npm run ingest-ohlc && npm run generate-signals"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "openai": "^6.34.0",
+    "pg": "^8.11.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}

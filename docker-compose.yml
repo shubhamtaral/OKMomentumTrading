@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # Backend API service
+  api:
+    build:
+      context: ./screener
+      dockerfile: Dockerfile
+    container_name: ok-momentum-api
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgres://user:password@db:5432/okmomentum
+    env_file:
+      - ./screener/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL database service
+  db:
+    image: postgres:15-alpine
+    container_name: ok-momentum-db
+    restart: always
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=okmomentum
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d okmomentum"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Frontend UI service
+  ui:
+    build:
+      context: ./screener/frontend
+      dockerfile: Dockerfile
+    container_name: ok-momentum-ui
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - frontend
+
+networks:
+  default:
+    name: ok-momentum-network
+
+volumes:
+  postgres_data:
