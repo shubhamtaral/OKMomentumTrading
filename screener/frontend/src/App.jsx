@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import SearchBox from './components/SearchBox.jsx';
 import Table from './components/Table.jsx';
 import ResultCard from './components/ResultCard.jsx';
-import { fetchBulkSignals, fetchSingleSignal, fetchSymbols, triggerRunScan } from './services/api.js';
+import { fetchBulkSignals, fetchSingleSignal, fetchSymbols, triggerFullSync } from './services/api.js';
 
 const BULK_LIMIT = 50;
 
@@ -74,6 +74,35 @@ export default function App() {
   // 'bulk' | 'single'
 
   const bulkRef = useRef(null);
+
+  // Hidden Admin Settings
+  const [secretClickCount, setSecretClickCount] = useState(0);
+  const [isMaintenanceActive, setIsMaintenanceActive] = useState(false);
+  const [isSyncingFull, setIsSyncingFull] = useState(false);
+
+  const handleLogoClick = () => {
+    const newCount = secretClickCount + 1;
+    setSecretClickCount(newCount);
+    if (newCount === 10) {
+      setIsMaintenanceActive(true);
+      addLog('Admin Maintenance Mode: Enabled', 'brand');
+    }
+  };
+
+  const handleFullSync = async () => {
+    if (!confirm('Proceed with Full System Sync? This re-fetches all NSE symbols and historical OHLC data.')) return;
+    setIsSyncingFull(true);
+    addLog('Triggering Full System Re-Ingestion...', 'brand');
+    try {
+      const res = await triggerFullSync();
+      addLog(res.message, 'success');
+      // Full sync is very long (mins), so we don't block the UI with a timeout logic here
+    } catch (err) {
+      addLog('Full sync trigger failed: ' + err.message, 'error');
+    } finally {
+      setIsSyncingFull(false);
+    }
+  };
 
   // ── Fetch symbol list on mount ───────────────────────────────────────────
   useEffect(() => {
@@ -173,7 +202,7 @@ export default function App() {
       {/* ── Top bar ───────────────────────────────────────────────────── */}
       <header className="border-b border-gray-800/60 bg-gray-950/80 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 select-none cursor-default" onClick={handleLogoClick}>
             <span className="text-lg font-black tracking-tight text-white">
               OK <span className="text-brand">Momentum</span> Screener
             </span>
@@ -225,6 +254,39 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-10">
+
+        {/* ── Hidden Admin Maintenance Panel ────────────────────────── */}
+        {isMaintenanceActive && (
+          <div className="p-4 rounded-2xl bg-red-950/10 border border-red-900/40 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <div>
+                  <h3 className="text-xs font-black text-red-500 uppercase tracking-widest">Maintenance Console</h3>
+                  <p className="text-[10px] text-red-900/80 font-mono">Force background ingestion & pipeline override</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleFullSync}
+                  disabled={isSyncingFull}
+                  className="px-3 py-1.5 bg-red-900/20 hover:bg-red-900/40 border border-red-900/40 rounded-lg text-[10px] font-black text-red-400 uppercase tracking-widest transition-colors disabled:opacity-50"
+                >
+                  {isSyncingFull ? 'Syncing...' : 'Force Global Pipeline Sync'}
+                </button>
+                <button
+                  onClick={() => setIsMaintenanceActive(false)}
+                  className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Tab switcher ──────────────────────────────────────────── */}
         <div className="flex items-center gap-2 p-1 bg-gray-900/40 border border-gray-800 rounded-xl w-fit">

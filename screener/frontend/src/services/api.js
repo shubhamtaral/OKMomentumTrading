@@ -93,15 +93,13 @@ export async function fetchSymbols() {
 }
 
 /**
- * triggerRunScan(aiKey)
+ * triggerFullSync()
  * --------------------
- * POST /scan/run
- * Triggers a full market scan in the background.
+ * POST /scan/full-sync
+ * Triggers a full market-wide ingestion + signal pass.
  */
-export async function triggerRunScan(aiKey = null) {
-  const headers = {};
-  if (aiKey) headers['x-ai-key'] = aiKey;
-  return apiFetch('/scan/run', { method: 'POST', headers });
+export async function triggerFullSync() {
+  return apiFetch('/scan/full-sync', { method: 'POST' });
 }
 
 /**

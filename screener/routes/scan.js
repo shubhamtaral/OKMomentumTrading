@@ -143,29 +143,26 @@ router.post('/single', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /scan/run
+// POST /scan/full-sync
 // ---------------------------------------------------------------------------
 
 /**
- * Triggers a full market-wide signal generation pass.
- * Can be slow; returns immediately with a tracking message.
+ * Triggers the FULL ingestion pipeline (Symbols -> OHLC -> Signals).
+ * Very intensive; used only for manual system resets.
  */
-router.post('/run', async (req, res) => {
-  const userApiKey = req.headers['x-ai-key'];
-  
-  // We use the existing generateSignals job
-  const { run: runSignalsJob } = require('../jobs/generateSignals');
+router.post('/full-sync', async (req, res) => {
+  const { runPipeline } = require('../jobs/scheduler');
 
-  console.log('[POST /scan/run] Manual pipeline trigger started...');
+  console.log('[POST /scan/full-sync] Manual FULL pipeline sync started...');
   
-  // Run it in the background so the request doesn't timeout
-  runSignalsJob(userApiKey)
-    .then(result => console.log('[POST /scan/run] Manual run complete:', result))
-    .catch(err => console.error('[POST /scan/run] Manual run failed:', err.message));
+  // Run it in the background
+  runPipeline()
+    .then(result => console.log('[POST /scan/full-sync] Full sync complete:', result))
+    .catch(err => console.error('[POST /scan/full-sync] Full sync failed:', err.message));
 
   return res.json({
     success: true,
-    message: 'Market-wide scan started in background. Refresh in 10-20 seconds to see new signals.'
+    message: 'Full system sync started (Symbols + OHLC + Signals). This will take 2-5 minutes.'
   });
 });
 
